@@ -156,9 +156,12 @@ jobs:
             # Find the latest successful workflow run for this branch.
             # Filter by event type: only push and workflow_dispatch produce
             # artifacts (PR runs succeed but upload nothing).
+            # A failed query (e.g. an expired or revoked token) is fatal: it
+            # would otherwise be indistinguishable from "no runs found" and
+            # silently deploy the site without docs.
             RUN_ID=""
             for EVENT_TYPE in push workflow_dispatch; do
-              RUN_ID=$(gh run list \
+              if ! RUN_ID=$(gh run list \
                 --repo "$SOURCE_REPO" \
                 --workflow "docs-build.yaml" \
                 --branch "$BRANCH" \
@@ -166,15 +169,18 @@ jobs:
                 --event "$EVENT_TYPE" \
                 --limit 1 \
                 --json databaseId \
-                --jq '.[0].databaseId' 2>/dev/null || echo "")
-              if [ -n "$RUN_ID" ] && [ "$RUN_ID" != "null" ]; then
+                --jq '.[0].databaseId // empty'); then
+                echo "::error::Failed to query $SOURCE_REPO workflow runs for $BRANCH. Check that EXECUTION_SPECS_READ_TOKEN is valid and has not expired."
+                exit 1
+              fi
+              if [ -n "$RUN_ID" ]; then
                 echo "Found run ID: $RUN_ID (event: $EVENT_TYPE)"
                 break
               fi
             done
 
-            if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
-              echo "WARNING: No successful run found for branch $BRANCH"
+            if [ -z "$RUN_ID" ]; then
+              echo "::warning::No successful docs-build run found for branch $BRANCH"
               FAILED_BRANCHES="$FAILED_BRANCHES $BRANCH"
               continue
             fi
@@ -182,11 +188,11 @@ jobs:
             if gh run download "$RUN_ID" \
               --repo "$SOURCE_REPO" \
               --name "$ARTIFACT_NAME" \
-              --dir "artifacts/$BRANCH_SAFE" 2>/dev/null; then
+              --dir "artifacts/$BRANCH_SAFE"; then
               echo "Downloaded artifact for $BRANCH"
               SUCCESSFUL_BRANCHES="$SUCCESSFUL_BRANCHES $BRANCH"
             else
-              echo "WARNING: Failed to download artifact for branch $BRANCH"
+              echo "::warning::Failed to download artifact $ARTIFACT_NAME from run $RUN_ID for branch $BRANCH"
               FAILED_BRANCHES="$FAILED_BRANCHES $BRANCH"
             fi
           done
@@ -239,13 +245,18 @@ jobs:
         id: validate
         run: |
           # Default branch is staged at site/docs/$PRODUCT/ (no <branch>/ segment).
+          # It backs the stable /docs/$PRODUCT/ URL, so refuse to deploy without
+          # it rather than replace a working site with a 404. Use the skip_docs
+          # or skip_branches inputs to deploy deliberately without it.
+          SKIP_BRANCHES="${{ github.event.inputs.skip_branches }}"
           if [ -f "site/docs/$PRODUCT/index.html" ]; then
-            HAS_DEFAULT="true"
+            echo "Default branch $DEFAULT_BRANCH staged at site/docs/$PRODUCT/"
+          elif echo "$SKIP_BRANCHES" | grep -qF "$DEFAULT_BRANCH"; then
+            echo "::warning::Default branch $DEFAULT_BRANCH skipped by request; /docs/$PRODUCT/ will 404"
           else
-            HAS_DEFAULT="false"
-            echo "WARNING: Default branch $DEFAULT_BRANCH is not available"
+            echo "::error::Default branch $DEFAULT_BRANCH docs are missing; refusing to deploy a site where /docs/$PRODUCT/ would 404"
+            exit 1
           fi
-          echo "has_default=$HAS_DEFAULT" >> $GITHUB_OUTPUT
 
       - name: Assemble docs (version selector, versions.json)
         if: github.event.inputs.skip_docs != 'true'
