@@ -14,8 +14,8 @@ directly at <product>/ (no <branch>/ segment); non-default branches stay at
 Usage (from repo root):
     uv run scripts/assemble-docs.py site/docs \\
         --product execution-specs \\
-        --branch-config "forks/amsterdam|Amsterdam" \\
-        --default-branch forks/amsterdam
+        --branch-config "main|Bogota" \\
+        --default-branch main
 """
 
 from __future__ import annotations
