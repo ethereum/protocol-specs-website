@@ -45,11 +45,10 @@ The docs [compare all the ways to run tests](/docs/execution-specs/running_tests
 
 ## How the work is organised
 
-execution-specs uses a branch per fork:
+execution-specs organises its work in these branches:
 
-- **`mainnet`**: the specs of every fork that is live on mainnet.
-- **`forks/<fork>`**: the fork under active development. It is merged into `mainnet` once the fork goes live.
-- **`eips/<fork>/eip-<n>`**: one branch per EIP. It is merged into the fork branch once the EIP is confirmed for that fork.
+- **`main`**: the default branch. It holds every fork, the live ones and the ones in development, and keeps its name from one fork to the next.
+- **`eips/<fork>/eip-<n>`**: one branch per EIP, based on `main`. It is merged into `main` once the EIP is confirmed for that fork.
 - **`devnets/<feature>/<n>`**: the combination of EIPs that a devnet runs.
 
 The [documentation](docs/index.md) is built for the fork in development.

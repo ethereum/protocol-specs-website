@@ -142,7 +142,8 @@ jobs:
           FAILED_BRANCHES=""
 
           for BRANCH in ${{ steps.config.outputs.branches }}; do
-            if echo "$SKIP_BRANCHES" | grep -qF "$BRANCH"; then
+            # Match whole names: `main` must not match a skipped `mainnet`.
+            if echo "$SKIP_BRANCHES" | tr ', ' '\n\n' | grep -qxF "$BRANCH"; then
               echo "Skipping branch (user requested): $BRANCH"
               continue
             fi

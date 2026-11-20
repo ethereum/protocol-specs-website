@@ -9,8 +9,8 @@
 # .github/configs/docs-branches.yaml `default_branch` field.
 
 product: execution-specs
-default_branch: forks/bogota
+default_branch: main
 
 branches:
-  - path: forks/bogota
+  - path: main
     label: Bogota
